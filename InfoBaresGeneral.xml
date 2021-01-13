@@ -1,0 +1,164 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<vxml version="2.1" xml:lang="es-ES">
+  <meta name="maintainer" content="yourEmail@here.com" />
+
+
+  <!-- Primero, cargamos las funciones -->
+  <script src="functions.js" fetchtimeout="15s"/>
+
+  <!-- Cargamos los datos de los bares -->
+  <data name="fetchBares" srcexpr="'http://webhosting.voxeo.net/207245/www/BaresData.xml'"/>
+
+  <!-- This calls the count function and stores the result into a VoiceXML variable. -->
+  <assign name="document.nbares" expr="getCount(fetchBares)"/>
+
+  <!-- Introduce todas las descripciones de los bares en un array -->
+  <assign name="document.baresArrayNombres" expr="assignArray(fetchBares, 'name', 'item')"/>
+
+  <link event="error">
+    <grammar>
+      <rule id="confirm">
+        <one-of>
+          <item> no he dicho eso </item>
+          <item> no </item>
+          <item> te has equivocado </item>
+          <item> eso no es lo que he dicho </item>
+          <item> no he querido decir eso </item>
+          <item> me he equivocado </item>
+          <item> te has confundido </item>
+          <item> error </item>
+          <item> es un error </item>
+          <item> ha habido un error </item>
+          <item> hay un error </item>
+        </one-of>
+      </rule>
+    </grammar>
+  </link>
+
+  <!-- Sentencia de bienvenida -->
+  <form id="intro">
+    <block>
+      Bienvenido a Tapeapp. Puedes preguntar por los bares cercanos a ti y hacer una reserva en ellos.
+      <break size="medium"/>
+      <goto next="#MenuGeneral"/>
+    </block>
+  </form>
+
+  <!-- Menu principal, se ofrecen las opciones de Informacion o reserva -->
+    <menu id="MenuGeneral" dtmf="true">
+      <prompt>
+        Si quiere información sobre los bares, diga Información. Si ya sabe donde hacer la reserva, diga Reserva.
+      </prompt>
+
+      <choice next="#menu_info_bares">Informacion</choice>
+
+      <choice next="#menu_reserva">reserva</choice>
+
+      <!-- Si se ha equivocado al responder la pregunta, volvemos a preguntar -->
+      <catch event="error">
+        <prompt>
+          Vale, volvemos a preguntar:
+        </prompt>
+        <goto next="#MenuGeneral"/>
+      </catch>
+
+      <catch event="nomatch noinput help">
+        <reprompt />
+      </catch>
+    </menu>
+
+  <!-- Se informa sobre los bares -->
+  <form id="menu_info_bares">
+    <block>
+      Hay <value expr="getCount(fetchBares)" /> bares disponibles en tu zona.
+      Los enumero a continuación:
+      <break size="short"/>
+
+      <!-- Iteramos por todos los bares y los nombramos -->
+      <foreach item="bar" array="assignArray(fetchBares, 'name', 'item')">
+        <prompt>
+          <value expr="bar"/>
+        </prompt>
+      </foreach>
+
+      <break size="short"/>
+      <goto next="#mas_info"/>
+    </block>
+
+    <!-- Si se ha equivocado al responder la pregunta, volvemos a preguntar -->
+    <catch event="error">
+      <prompt>
+        Vale, volvemos a preguntar:
+      </prompt>
+      <goto next="#MenuGeneral"/>
+    </catch>
+
+  </form>
+
+  <menu id="mas_info" dtmf="true">
+    <prompt>
+      ¿Quiere información sobre algún bar en concreto?
+    </prompt>
+
+    <choice next="#info_bares_concreto">Si</choice>
+
+    <choice next="#MenuGeneral">No</choice>
+
+    <!-- Si se ha equivocado al responder la pregunta, volvemos a preguntar -->
+    <catch event="error">
+      <prompt>
+        Vale, volvemos a preguntar:
+      </prompt>
+      <goto next="#menu_info_bares"/>
+    </catch>
+
+    <catch event="nomatch noinput help">
+      <reprompt />
+    </catch>
+  </menu>
+
+  <!-- Se ofrece Informacion detallada del bar indicado por el usuario -->
+  <form id="info_bares_concreto" scope="document">
+    <field name="bar" modal="true">
+      <grammar src="BaresGram.xml" type="application/srgs+xml"/>
+
+      <prompt baregin="true">
+        Dígame el nombre del bar del que quiere saber más
+      </prompt>
+
+      <!-- Si se ha equivocado al responder la pregunta, volvemos a preguntar -->
+
+      <catch event="error">
+        <goto next="#ErrorBarIndicado"/>
+      </catch>
+
+      <filled>
+        <!-- Asignamos el codigo del bar a una variable -->
+        <assign name="document.barescogido" expr="lastresult$.interpretation.code"/>
+        <!-- Ha dicho <value expr="getName(fetchBares, barescogido)" /> y el codigo es <value expr="barescogido" /> -->
+        <value expr="getDescription(fetchBares, barescogido)" />
+        <break size="short"/>
+        <goto next="#mas_info"/>
+      </filled>
+    </field>
+  </form>
+
+  <form id="ErrorBarIndicado">
+    <block>
+      Oh vale volvamos a intentarlo.
+      <break size="short"/>
+      <goto next="General"/>
+    </block>
+  </form>
+
+  <form id="menu_reserva">
+    <block>
+      Aquí irá el menu de la reserva
+      <break size="short"/>
+      Pero está por hacer, así que de vuelta al menú general
+      <break size="short"/>
+      <goto next="#MenuGeneral"/>
+    </block>
+  </form>
+
+</vxml>
